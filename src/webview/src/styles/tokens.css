@@ -1,0 +1,17 @@
+:root {
+  color-scheme: light dark;
+  --sd-bg: var(--vscode-editor-background);
+  --sd-fg: var(--vscode-editor-foreground);
+  --sd-muted: var(--vscode-descriptionForeground, #9aa0a6);
+  --sd-border: var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+  --sd-surface: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.08));
+  --sd-accent: var(--vscode-focusBorder, #007fd4);
+  --sd-button: var(--vscode-button-background, #0e639c);
+  --sd-button-fg: var(--vscode-button-foreground, #ffffff);
+  --sd-input-bg: var(--vscode-input-background, rgba(127, 127, 127, 0.12));
+  --sd-input-fg: var(--vscode-input-foreground, var(--sd-fg));
+}
+
+body.vscode-high-contrast {
+  --sd-border: var(--vscode-contrastBorder, #ffffff);
+}
