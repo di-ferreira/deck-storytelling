@@ -39,7 +39,6 @@ const VIEW_IDS = [
   'storyDeck.deckStudio',
   'storyDeck.genreBuilder',
   'storyDeck.storyBuilder',
-  'storyDeck.aiAssistant',
 ];
 
 const TEMP_PROJECT_DIR = 'story-deck';

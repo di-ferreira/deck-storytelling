@@ -113,14 +113,6 @@ export class StoryDeckTreeProvider implements vscode.TreeDataProvider<TreeEntry>
       case 'storyDeck.storyBuilder':
         return this.storyBuilderChildren();
 
-      case 'storyDeck.aiAssistant':
-        return [
-          new TreeEntry('Consultoria narrativa', [], { icon: 'comment-discussion' }),
-          new TreeEntry('Geração de ideias', [], { icon: 'sparkle' }),
-          new TreeEntry('Planejamento', [], { icon: 'map' }),
-          new TreeEntry('Revisão', [], { icon: 'search' }),
-        ];
-
       default:
         return [];
     }

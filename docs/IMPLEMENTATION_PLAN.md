@@ -172,6 +172,20 @@ O teste de integração agora abre um workspace real e verifica ponta a ponta: a
 
 ---
 
+## 0.6 Encerramento (Fase 8) — 2026-11-16
+
+**Decisão do usuário:** não implementar IA neste momento. A Fase 7 (IA opcional + auditoria narrativa com `craft_warning`) fica **adiada**, sem código, configuração, credencial ou chamada de rede. O roadmap permanece documentado para retomada futura; a arquitetura já isola `ContextBuilder`, `AiProvider` e `AuditState` como pontos de extensão.
+
+**Escopo de finalização executado:**
+- Documentação de estado atualizada (`README.md` com fases 1–6 concluídas e número real de testes).
+- Validação final completa: 194 testes unitários, type-check host e webview, build, teste de integração no Extension Development Host e empacotamento VSIX.
+- Verificação de integridade do deck (hash do recurso idêntico ao original) e ausência de dependências de IA no manifesto/código.
+- Acessibilidade: variáveis de tema do VS Code (claro/escuro/alto contraste) e controles com rótulos/estados ARIA nas três Webviews.
+
+**Resultado final:** extensão funcional, local-first, modular e pronta para uso com o Novel Assistant. Limitações conhecidas e pendências V1/V2/V3/V5 do Novel Assistant permanecem documentadas em `INTEGRATION.md` §6.4.
+
+---
+
 ## 0. Como usar este plano
 
 O master prompt §22 exige: não implementar tudo de uma vez; trabalhar por fases; antes de cada fase ler a documentação existente, verificar o implementado, identificar dependências e definir critérios de conclusão; durante cada fase implementar, testar, corrigir, atualizar docs e manter build; ao final apresentar concluído, arquivos, testes, limitações e atualizar o plano.

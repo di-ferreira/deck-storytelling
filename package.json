@@ -144,10 +144,6 @@
         {
           "id": "storyDeck.storyBuilder",
           "name": "Story Builder"
-        },
-        {
-          "id": "storyDeck.aiAssistant",
-          "name": "AI Assistant"
         }
       ]
     },
@@ -207,11 +203,6 @@
           "type": "boolean",
           "default": true,
           "description": "Salva automaticamente as alterações do projeto após uma breve pausa."
-        },
-        "storyDeck.ai.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Habilita o módulo opcional de IA. A extensão funciona integralmente com esta opção desligada."
         }
       }
     }

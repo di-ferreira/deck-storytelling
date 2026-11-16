@@ -131,7 +131,7 @@ export async function run(): Promise<void> {
     fail('Colisão de Activity Bar com o Novel Assistant.');
   }
 
-  for (const viewId of ['storyDeck.dashboard', 'storyDeck.deckStudio', 'storyDeck.genreBuilder', 'storyDeck.storyBuilder', 'storyDeck.aiAssistant']) {
+  for (const viewId of ['storyDeck.dashboard', 'storyDeck.deckStudio', 'storyDeck.genreBuilder', 'storyDeck.storyBuilder']) {
     const view = vscode.window.createTreeView(viewId, { treeDataProvider: { getTreeItem: (item) => item, getChildren: () => [] } });
     view.dispose();
   }
