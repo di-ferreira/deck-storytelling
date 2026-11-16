@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "spreads": [
+    {
+      "id": "identidade-da-obra",
+      "name": "Identidade da obra",
+      "purpose": "Definir promessa, mistura e estilo.",
+      "drawText": "1 gênero dominante + 1 secundário + 1 carta de tom/atmosfera de CAT-05 ou CAT-16",
+      "custom": false,
+      "slots": [
+        {
+          "id": "dominante",
+          "label": "Gênero dominante",
+          "kinds": [
+            "genre_definition"
+          ],
+          "count": 1,
+          "source": "selection"
+        },
+        {
+          "id": "secundario",
+          "label": "Gênero secundário",
+          "kinds": [
+            "genre_definition"
+          ],
+          "count": 1,
+          "source": "selection"
+        },
+        {
+          "id": "tom-atmosfera",
+          "label": "Tom e atmosfera",
+          "categoryIds": [
+            "CAT-05",
+            "CAT-16"
+          ],
+          "count": 1,
+          "source": "deck"
+        }
+      ]
+    },
+    {
+      "id": "projeto-de-enredo",
+      "name": "Projeto de enredo",
+      "purpose": "Transformar o gênero em motor de acontecimentos.",
+      "drawText": "1 gênero dominante + 1 estrutura de CAT-13 + 1 conflito de CAT-03 + 1 carta de trama de CAT-14",
+      "custom": false,
+      "slots": [
+        {
+          "id": "dominante",
+          "label": "Gênero dominante",
+          "kinds": [
+            "genre_definition"
+          ],
+          "count": 1,
+          "source": "selection"
+        },
+        {
+          "id": "estrutura",
+          "label": "Estrutura",
+          "categoryIds": [
+            "CAT-13"
+          ],
+          "count": 1,
+          "source": "deck"
+        },
+        {
+          "id": "conflito",
+          "label": "Conflito",
+          "categoryIds": [
+            "CAT-03"
+          ],
+          "count": 1,
+          "source": "deck"
+        },
+        {
+          "id": "trama",
+          "label": "Trama",
+          "categoryIds": [
+            "CAT-14"
+          ],
+          "count": 1,
+          "source": "deck"
+        }
+      ]
+    },
+    {
+      "id": "teste-de-coerencia",
+      "name": "Teste de coerência",
+      "purpose": "Verificar se voz, técnica e cena entregam a experiência prometida.",
+      "drawText": "1 gênero selecionado + 1 narrador de CAT-10 + 1 técnica de CAT-15 + 1 carta de cena de CAT-06",
+      "custom": false,
+      "slots": [
+        {
+          "id": "genero",
+          "label": "Gênero selecionado",
+          "kinds": [
+            "genre_definition"
+          ],
+          "count": 1,
+          "source": "selection"
+        },
+        {
+          "id": "narrador",
+          "label": "Narrador",
+          "categoryIds": [
+            "CAT-10"
+          ],
+          "count": 1,
+          "source": "deck"
+        },
+        {
+          "id": "tecnica",
+          "label": "Técnica",
+          "categoryIds": [
+            "CAT-15"
+          ],
+          "count": 1,
+          "source": "deck"
+        },
+        {
+          "id": "cena",
+          "label": "Cena",
+          "categoryIds": [
+            "CAT-06"
+          ],
+          "count": 1,
+          "source": "deck"
+        }
+      ]
+    },
+    {
+      "id": "mistura-de-generos",
+      "name": "Mistura de gêneros",
+      "purpose": "Descobrir o que cada gênero acrescenta e qual deles permanece dominante.",
+      "drawText": "2 cartas de gênero + 1 carta de conflito + 1 carta de personagem",
+      "custom": false,
+      "slots": [
+        {
+          "id": "genero-a",
+          "label": "Gênero A",
+          "kinds": [
+            "genre_definition"
+          ],
+          "count": 1,
+          "source": "selection"
+        },
+        {
+          "id": "genero-b",
+          "label": "Gênero B",
+          "kinds": [
+            "genre_definition"
+          ],
+          "count": 1,
+          "source": "selection"
+        },
+        {
+          "id": "conflito",
+          "label": "Conflito",
+          "categoryIds": [
+            "CAT-03"
+          ],
+          "count": 1,
+          "source": "deck"
+        },
+        {
+          "id": "personagem",
+          "label": "Personagem",
+          "categoryIds": [
+            "CAT-01"
+          ],
+          "count": 1,
+          "source": "deck"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,206 @@
+{
+  "name": "story-deck",
+  "displayName": "Story Deck — ENTRELINHAS",
+  "description": "Construa histórias com o deck ENTRELINHAS v4: explore cartas, defina gêneros e planeje sua obra junto ao Novel Assistant.",
+  "version": "0.1.0",
+  "publisher": "story-deck",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "storytelling",
+    "writing",
+    "novel",
+    "entrelinhas",
+    "story deck"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "storyDeck.openDeckStudio",
+        "title": "Abrir Deck Studio",
+        "category": "Story Deck"
+      },
+      {
+        "command": "storyDeck.openGenreBuilder",
+        "title": "Abrir Genre Builder",
+        "category": "Story Deck"
+      },
+      {
+        "command": "storyDeck.setDominantGenre",
+        "title": "Definir gênero dominante",
+        "category": "Story Deck",
+        "icon": "$(crown)"
+      },
+      {
+        "command": "storyDeck.regenerateGenreContract",
+        "title": "Atualizar contrato de gênero",
+        "category": "Story Deck"
+      },
+      {
+        "command": "storyDeck.refresh",
+        "title": "Atualizar",
+        "category": "Story Deck",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "storyDeck.showDiagnostics",
+        "title": "Mostrar diagnóstico do deck",
+        "category": "Story Deck"
+      },
+      {
+        "command": "storyDeck.newProject",
+        "title": "Criar projeto Story Deck",
+        "category": "Story Deck"
+      },
+      {
+        "command": "storyDeck.drawCard",
+        "title": "Sortear carta do catálogo",
+        "category": "Story Deck",
+        "icon": "$(wand)"
+      },
+      {
+        "command": "storyDeck.shuffleSelection",
+        "title": "Embaralhar seleção",
+        "category": "Story Deck",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "storyDeck.saveVersion",
+        "title": "Salvar versão da seleção",
+        "category": "Story Deck",
+        "icon": "$(save)"
+      },
+      {
+        "command": "storyDeck.restoreVersion",
+        "title": "Restaurar versão da seleção",
+        "category": "Story Deck",
+        "icon": "$(history)"
+      },
+      {
+        "command": "storyDeck.openSpread",
+        "title": "Abrir tiragem",
+        "category": "Story Deck",
+        "icon": "$(layout)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "story-deck",
+          "title": "Story Deck",
+          "icon": "resources/story-deck.svg"
+        }
+      ]
+    },
+    "views": {
+      "story-deck": [
+        {
+          "id": "storyDeck.dashboard",
+          "name": "Dashboard"
+        },
+        {
+          "id": "storyDeck.deckStudio",
+          "name": "Deck Studio"
+        },
+        {
+          "id": "storyDeck.genreBuilder",
+          "name": "Genre Builder"
+        },
+        {
+          "id": "storyDeck.storyBuilder",
+          "name": "Story Builder"
+        },
+        {
+          "id": "storyDeck.aiAssistant",
+          "name": "AI Assistant"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "storyDeck.refresh",
+          "when": "view == storyDeck.deckStudio || view == storyDeck.dashboard || view == storyDeck.genreBuilder",
+          "group": "navigation"
+        },
+        {
+          "command": "storyDeck.setDominantGenre",
+          "when": "view == storyDeck.genreBuilder",
+          "group": "navigation"
+        },
+        {
+          "command": "storyDeck.drawCard",
+          "when": "view == storyDeck.deckStudio",
+          "group": "navigation"
+        },
+        {
+          "command": "storyDeck.openSpread",
+          "when": "view == storyDeck.deckStudio",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Story Deck",
+      "properties": {
+        "storyDeck.deck.validateOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Valida a integridade do deck ENTRELINHAS ao ativar a extensão e registra o resultado no canal de saída."
+        },
+        "storyDeck.project.autoSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Salva automaticamente as alterações do projeto após uma breve pausa."
+        },
+        "storyDeck.ai.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Habilita o módulo opcional de IA. A extensão funciona integralmente com esta opção desligada."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "npm run build:host && npm run build:webview && npm run copy:deck",
+    "build:host": "node esbuild.config.mjs",
+    "build:webview": "vite build",
+    "copy:deck": "node scripts/copy-deck.mjs",
+    "watch": "npm run build:host -- --watch",
+    "pretest": "npm run copy:deck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "compile:integration": "tsc -p tsconfig.integration.json",
+    "pretest:integration": "npm run compile && npm run compile:integration",
+    "test:integration": "node scripts/run-integration-test.mjs",
+    "package": "npm run compile && vsce package --no-dependencies --allow-missing-repository"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@types/vscode": "^1.85.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.9.3",
+    "vite": "^6.3.6",
+    "vitest": "^3.2.4"
+  }
+}

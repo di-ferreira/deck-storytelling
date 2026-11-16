@@ -1,0 +1,19 @@
+.vscode/**
+.vscode-test/**
+node_modules/**
+out/**
+tests/**
+scripts/**
+docs/**
+.opencode/**
+.novel-assistant/**
+deck_storytelling.json
+MASTER PROMPT — STORY DECK.md
+**/*.map
+**/.gitignore
+**/tsconfig*.json
+**/vite.config.ts
+**/vitest.config.ts
+**/esbuild.config.mjs
+**/*.test.ts
+src/**
