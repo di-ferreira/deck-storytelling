@@ -4,8 +4,12 @@
   "description": "Construa histórias com o deck ENTRELINHAS v4: explore cartas, defina gêneros e planeje sua obra junto ao Novel Assistant.",
   "version": "0.1.0",
   "publisher": "story-deck",
-  "license": "UNLICENSED",
-  "private": true,
+  "license": "SEE LICENSE IN LICENSE.txt",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/di-ferreira/deck-storytelling.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
