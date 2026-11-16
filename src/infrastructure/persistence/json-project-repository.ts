@@ -4,10 +4,12 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   StoryProjectConflictError,
+  type EnsureOptions,
   type EnsureResult,
   type ProjectRepository,
   type StoredProject,
 } from '../../application/ports/project-repository';
+import { NOVEL_ASSISTANT_DIRS } from '../../domain/integration/novel-assistant-package';
 import { createEmptyStoryProject, type StoryProjectFileJson } from '../../domain/story/story-project';
 import type { IDisposable } from '../../shared/types';
 import { storyProjectFileSchema } from '../../shared/schemas/story';
@@ -64,7 +66,7 @@ export class JsonProjectRepository implements ProjectRepository {
   }
 
   /** Cria somente o que não existe. Nunca sobrescreve arquivo do usuário nem do Novel Assistant. */
-  async ensureStructure(): Promise<EnsureResult> {
+  async ensureStructure(options?: EnsureOptions): Promise<EnsureResult> {
     if (!this.rootPath || !this.projectPath) {
       throw new Error('Abra uma pasta ou workspace antes de criar um projeto Story Deck.');
     }
@@ -94,6 +96,18 @@ export class JsonProjectRepository implements ProjectRepository {
       if (!existsSync(target)) {
         await writeFile(target, content, 'utf8');
         created.push(`Story/${name}`);
+      }
+    }
+
+    // Fluxo B: apenas diretórios, somente se ausentes. Nunca tocamos em
+    // `.novel-assistant/`, `USER_GUIDE.md` nem no conteúdo de `Manuscript/`.
+    if (options?.compatibilityDirs) {
+      for (const directory of NOVEL_ASSISTANT_DIRS) {
+        const target = join(this.rootPath, directory);
+        if (!existsSync(target)) {
+          await mkdir(target, { recursive: true });
+          created.push(`${directory}/`);
+        }
       }
     }
 

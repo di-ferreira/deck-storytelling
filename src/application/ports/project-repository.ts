@@ -11,6 +11,11 @@ export interface EnsureResult {
   readonly created: boolean;
 }
 
+export interface EnsureOptions {
+  /** Fluxo B (sem Novel Assistant): cria os seis diretórios documentados se ausentes. */
+  readonly compatibilityDirs?: boolean;
+}
+
 /** Conflito de revisão otimista do `project.json`. */
 export class StoryProjectConflictError extends RevisionConflictError {
   constructor(expectedRevision: number, actualRevision: number) {
@@ -25,7 +30,7 @@ export class StoryProjectConflictError extends RevisionConflictError {
 
 export interface ProjectRepository {
   getWorkspaceRoot(): string | undefined;
-  ensureStructure(): Promise<EnsureResult>;
+  ensureStructure(options?: EnsureOptions): Promise<EnsureResult>;
   /** Compatível com v1: normaliza o descritor mínimo em memória para o formato v2. */
   load(): Promise<StoredProject | undefined>;
   /** Versão BRUTA gravada em `project.json` (não normalizada), usada pela migração. */

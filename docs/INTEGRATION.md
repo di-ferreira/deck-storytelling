@@ -240,3 +240,72 @@ Enquanto V1–V6 não forem executados, o layout `Manuscript/<Capítulo>/<Cena>.
 3. **Se o usuário quer que o Story Deck crie automaticamente os 6 diretórios no Fluxo B** — proposta: sim, se ausentes (compatibilidade futura), mas nunca sobrescrever.
 4. **Publisher/ID final da extensão Story Deck** — proposta provisória: `story-deck`.
 5. **Política caso o NA esteja instalado mas desatualizado** — proposta: aviso informativo, não bloqueio.
+
+---
+
+## 6. Resultado da Fase 6 — integração com Novel Assistant (2026-11-16)
+
+**Status:** núcleo, UI, comandos e testes concluídos. O layout `Manuscript/<Capítulo>/<Cena>.md` continua **inferido** (V2/V3 pendentes) e está isolado em um único módulo, pronto para troca.
+
+### 6.1 Entregas
+
+| Arquivo | Entrega |
+|---|---|
+| `src/domain/integration/novel-path-layout.ts` | Módulo puro do layout inferido: `sanitizeSegment`, `chapterDirectory`, `scenePath`. Remove travessia `..`, separadores, caracteres inválidos no Windows, limita tamanho e é idempotente. É o único lugar que conhece o layout. |
+| `src/domain/integration/novel-assistant-package.ts` | Descoberta pura do manifesto: `parseNovelAssistantPackage` lê `version`, `contributes.commands[].command`, `contributes.customEditors[].viewType` e `exports`; `presentNovelAssistantDirs` filtra os seis diretórios documentados. Sem `vscode`. |
+| `src/application/ports/integration-gateway.ts` | `NovelAssistantStatus` ampliado (`customEditors`, `exportsApi`, `workspaceDirs`) e `hasCommand(id)` como única porta de execução. `IntegrationMode` (`novel-assistant` \| `standalone`). |
+| `src/infrastructure/integrations/vscode-novel-assistant-adapter.ts` | Detecta extensão/versão/comandos/custom editors em runtime e responde `hasCommand()`. Nenhum ID é tratado como contrato. |
+| `src/application/services/integration-service.ts` | Decide o fluxo A (NA instalado → modo `novel-assistant`, oferece o comando oficial **somente** se `hasCommand` confirmar, não cria diretórios do NA) ou B (sem NA → `standalone`, cria os 6 diretórios). |
+| `src/infrastructure/persistence/integration-settings.ts` | Lê/escreve `integrationMode` em `.storydeck/settings.json` preservando chaves existentes e `schemaVersion`. **`project.json` v2 não foi alterado.** |
+| `src/infrastructure/persistence/json-project-repository.ts` | `ensureStructure({ compatibilityDirs })` cria os 6 diretórios documentados **somente se ausentes**, no fluxo B. Nunca toca em `.novel-assistant/`, `USER_GUIDE.md` nem no conteúdo existente. |
+| `src/infrastructure/integrations/manuscript-scene-store.ts` | `ensureSceneFile` usa `writeFile` com flag `wx`: cria o `.md` apenas se ausente, com dupla validação de caminho (sanitização + checagem de que o absoluto continua sob `Manuscript/`). |
+| `src/infrastructure/markdown/scene-manuscript-template.ts` | Template próprio (`# título`, `## Synopsis`, `---`, `<!-- story-deck:scene-id ... -->`), distinto do template do NA. |
+| `src/application/services/scene-brief-service.ts` | Monta título/objetivo/conflito/mudança/gancho, capítulo/ato, cartas vinculadas (`links` filtrados por `{type:'scene', sceneId}`), gênero dominante, dimensões e avisos de `StoryContextBuilder`. |
+| `src/extension/views/scene-brief-html.ts` + `scene-brief-panel.ts` | HTML estático com `escapeHtml` em todo valor dinâmico, `default-src 'none'`, sem scripts e sem recursos locais; painel reutilizável com `enableScripts: false`. |
+| `src/extension/extension.ts` | 3 novos comandos e composição dos serviços. `openSceneInManuscript` usa `showTextDocument` como padrão e oferece `vscode.openWith` **somente** com um viewType descoberto. |
+| `package.json` | Comandos `storyDeck.checkNovelAssistant`, `storyDeck.openSceneInManuscript`, `storyDeck.showSceneBrief` (17 no total) e entradas em `view/title` do Story Builder/Dashboard. |
+
+### 6.2 O que foi automatizado
+
+- **V4 (API programável):** `parseNovelAssistantPackage` lê efetivamente `extension.exports`; testes unitários cobrem ausência (`false`), `null` (`false`), objeto e função (`true`). No host de teste o NA está desativado (`--disable-extensions`), então o valor runtime observado é `false` — a checagem **com a extensão real instalada** continua no checklist manual abaixo. Não afirmamos que V4 foi totalmente executado.
+- **V6 (coexistência):** o teste de integração lê os `contributes` do próprio `package.json` e verifica: todos os comandos começam com `storyDeck.*`, não há IDs duplicados, nenhum ID repete comandos conhecidos do NA e a Activity Bar não é `novel-assistant-sidebar`.
+- **Intocabilidade do NA:** um sentinel `.novel-assistant/stats.json` é escrito antes da ativação e comparado **byte a byte** ao final da suíte — nenhuma alteração. Os comandos de cena também são chamados duas vezes: a segunda não sobrescreve o arquivo criado na primeira.
+- **Fluxo B ponta a ponta:** `settings.json` registra `integrationMode: standalone`; os 6 diretórios são criados; `project.json` semeado não é sobrescrito; os fluxos de desenho, gênero, história e seleção continuam funcionando.
+
+### 6.3 Invariantes verificados
+
+Nada é sobrescrito; nada em `.novel-assistant/` é alterado; nomes são sanitizados sem path traversal; nenhuma API privada é usada; sem o NA a extensão funciona integralmente.
+
+### 6.4 Checklist pendente — interação manual, NÃO executado
+
+Estes experimentos exigem uma sessão interativa com o Novel Assistant 0.1.0 instalado e não foram realizados nesta fase. Não devem ser marcados como concluídos.
+
+- [ ] **V1** — Em workspace vazio, executar `novel-assistant.newProject`; anotar exatamente quais dirs/arquivos aparecem e se `.git` é criado. Define se o Fluxo A precisa de algum ajuste.
+- [ ] **V2** — Executar `novel-assistant.newChapter` e `novel-assistant.newScene`; confirmar nomes de pastas/arquivos e se `Manuscript/<Capítulo>/<Cena>.md` aparece na TreeView e no Outline. Valida o `pathLayout`.
+- [ ] **V3** — Criar manualmente `Manuscript/Meu Capitulo/Minha Cena.md`, recarregar e verificar reconhecimento pelo NA. É o teste crucial do Fluxo B.
+- [ ] **V4 (runtime)** — Com o NA instalado, inspecionar `ext.exports` em uma sessão real e confirmar a ausência de API pública programática. A lógica de leitura já está coberta por teste; falta a observação real.
+- [ ] **V5** — Abrir o `.md` da cena com `showTextDocument` e, separadamente, com `vscode.openWith(uri, 'novel-assistant.wysiwyg')`; confirmar que ambos funcionam e que o WYSIWYG é opcional (`priority: "option"`).
+- [ ] **V6 (execução real)** — Instalar Story Deck e NA juntos, executar comandos de ambos e conferir visualmente ausência de colisão de UI/escrita. A parte automatizada (manifesto + sentinel) já passou.
+
+### 6.5 Verificações executadas
+
+| Comando | Resultado |
+|---|---|
+| `npm test` | ✅ 28 arquivos, **194 testes aprovados** (154 anteriores + 40 novos) |
+| `npx tsc -p tsconfig.json --noEmit` | ✅ sem erros |
+| `npx tsc -p tsconfig.webview.json` | ✅ sem erros |
+| `npm run compile` | ✅ host 394,7 kB + webview 358,03 kB (CSS 13,48 kB) |
+| `npm run test:integration` | ✅ exit 0 — 17 comandos, V6 no manifesto, sentinel intacto, cena criada/não sobrescrita, brief aberto |
+| `npm run package` | ✅ `story-deck-0.1.0.vsix` (11 arquivos, 238,39 kB) |
+
+### 6.6 Limitações restantes
+
+- O layout de capítulos/cenas ainda é inferido; V2/V3 podem exigir ajuste **apenas** em `novel-path-layout.ts`.
+- O Fluxo A foi implementado e testado como decisão pura (`IntegrationService`), mas não executado de ponta a ponta com o NA instalado depende de V1.
+- O Scene Brief é estático (sem script e sem mensagens) — não há serializador de painel sobrevivente a reinício.
+- Sem workspace aberto, os comandos de cena informam ao usuário e não criam arquivos (estado em diretório temporário).
+- A oferta do WYSIWYG usa `showInformationMessage`; em automação com NA instalado, essa interação precisa de um respondente.
+
+### 6.7 Próximo passo
+
+Fase 7 — IA opcional. Em paralelo, executar o checklist §6.4 em uma sessão com o Novel Assistant instalado para confirmar o layout e fechar V1–V5.

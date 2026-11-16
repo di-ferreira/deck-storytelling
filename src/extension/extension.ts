@@ -3,15 +3,23 @@ import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DeckService } from '../application/services/deck-service';
+import { IntegrationService } from '../application/services/integration-service';
+import { SceneBriefService } from '../application/services/scene-brief-service';
 import { SelectionService } from '../application/services/selection-service';
 import { SpreadEngine } from '../application/services/spread-engine';
 import { GenreService } from '../application/services/genre-service';
 import { StoryService } from '../application/services/story-service';
 import { StoryMigration } from '../application/services/story-migration';
+import { scenePath } from '../domain/integration/novel-path-layout';
+import type { Scene } from '../domain/story/structure';
+import type { StoryProject } from '../domain/story/story-project';
 import { SelectionLinkQuery } from '../application/services/selection-link-query';
 import { JsonDeckLoader } from '../infrastructure/deck/json-deck-loader';
 import { VsCodeOutputLogger } from '../infrastructure/logging/vscode-logger';
+import { ManuscriptSceneStore } from '../infrastructure/integrations/manuscript-scene-store';
 import { VsCodeNovelAssistantAdapter } from '../infrastructure/integrations/vscode-novel-assistant-adapter';
+import { renderSceneManuscriptTemplate } from '../infrastructure/markdown/scene-manuscript-template';
+import { IntegrationSettingsStore } from '../infrastructure/persistence/integration-settings';
 import { JsonOperationLog } from '../infrastructure/persistence/json-operation-log';
 import { JsonProjectRepository } from '../infrastructure/persistence/json-project-repository';
 import { JsonSelectionRepository } from '../infrastructure/persistence/json-selection-repository';
@@ -23,6 +31,7 @@ import { FsStoryDocumentStore } from '../infrastructure/markdown/fs-story-docume
 import { StoryDeckTreeProvider } from './providers/story-deck-tree-provider';
 import { DeckStudioPanel } from './views/deck-studio-panel';
 import { GenreBuilderPanel } from './views/genre-builder-panel';
+import { SceneBriefPanel } from './views/scene-brief-panel';
 import { StoryBuilderPanel } from './views/story-builder-panel';
 
 const VIEW_IDS = [
@@ -47,6 +56,27 @@ async function guarded(failurePrefix: string, action: () => Promise<void>): Prom
   } catch (error) {
     void vscode.window.showErrorMessage(`Story Deck: ${failurePrefix} ${errorText(error)}`);
   }
+}
+
+/** Com um ID explícito (ex.: testes) não abre QuickPick; sem ele, abre a lista de cenas. */
+async function pickScene(sceneId: string | undefined, project: StoryProject): Promise<Scene | undefined> {
+  if (sceneId) {
+    return project.scenes.find((scene) => scene.id === sceneId);
+  }
+  if (project.scenes.length === 0) {
+    void vscode.window.showInformationMessage('Story Deck: crie uma cena no Story Builder primeiro.');
+    return undefined;
+  }
+  const picked = await vscode.window.showQuickPick(
+    project.scenes.map((scene) => ({
+      label: scene.title || scene.id,
+      description: project.chapters.find((chapter) => chapter.id === scene.chapterId)?.title || 'Capítulo sem título',
+      detail: scene.id,
+      sceneId: scene.id,
+    })),
+    { title: 'Story Deck — escolha a cena', placeHolder: 'Cena do Story Builder' },
+  );
+  return picked ? project.scenes.find((scene) => scene.id === picked.sceneId) : undefined;
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -91,7 +121,7 @@ async function bootstrap(context: vscode.ExtensionContext): Promise<void> {
     }
   }
 
-  const integration = new VsCodeNovelAssistantAdapter();
+  const integration = new VsCodeNovelAssistantAdapter(workspaceRoot);
   const assistant = integration.detectNovelAssistant();
   logger.info(
     assistant.installed
@@ -171,6 +201,19 @@ async function bootstrap(context: vscode.ExtensionContext): Promise<void> {
   }
 
   const genreService = new GenreService({ deck: loader, storyState: storyStateRepository, story: storyService });
+
+  // Fase 6 — integração com Novel Assistant. Sem NA instalado, tudo continua funcionando.
+  const integrationService = new IntegrationService(integration);
+  const integrationSettings = new IntegrationSettingsStore(workspaceRoot);
+  const manuscriptStore = new ManuscriptSceneStore(workspaceRoot);
+  const sceneBriefService = new SceneBriefService({
+    story: storyService,
+    selection: selectionService,
+    genre: genreService,
+    deck: loader,
+  });
+  const sceneBriefPanel = new SceneBriefPanel(context);
+
   const genreDocuments = new GenreContractDocumentStore(
     workspaceRoot
       ? { projectRoot: workspaceRoot, deck: loader }
@@ -344,19 +387,95 @@ async function bootstrap(context: vscode.ExtensionContext): Promise<void> {
       await genrePanel.refresh();
       await storyPanel.refresh();
     }),
-    vscode.commands.registerCommand('storyDeck.newProject', async () => {
-      try {
-        const result = await projectRepository.ensureStructure();
+    vscode.commands.registerCommand('storyDeck.newProject', async (interactive = true) => {
+      await guarded('não foi possível criar o projeto.', async () => {
+        const plan = integrationService.plan();
+        if (interactive && plan.officialNewProjectCommand) {
+          const choice = await vscode.window.showInformationMessage(
+            'Story Deck: o Novel Assistant está instalado. Deseja executar a criação de projeto oficial dele? O Story Deck acrescentará somente `.storydeck/` e `Story/`.',
+            'Executar criação oficial',
+            'Somente Story Deck',
+          );
+          if (choice === 'Executar criação oficial') {
+            await vscode.commands.executeCommand(plan.officialNewProjectCommand);
+          }
+        }
+
+        const result = await projectRepository.ensureStructure({ compatibilityDirs: plan.createCompatibilityDirs });
+        await integrationSettings.setIntegrationMode(plan.mode);
         const count = result.createdFiles.length;
         void vscode.window.showInformationMessage(
           count > 0
-            ? `Projeto Story Deck pronto. ${count} arquivo(s) criado(s), nenhum existente foi alterado.`
-            : 'O projeto Story Deck já existe e permaneceu intacto.',
+            ? `Projeto Story Deck pronto (${plan.mode}). ${count} item(ns) criado(s), nenhum existente foi alterado.`
+            : `O projeto Story Deck (${plan.mode}) já existe e permaneceu intacto.`,
         );
-        logger.info(`Estrutura do projeto verificada. Criados: ${result.createdFiles.join(', ') || 'nenhum'}.`);
-      } catch (error) {
-        void vscode.window.showErrorMessage(`Story Deck: ${errorText(error)}`);
-      }
+        logger.info(`Estrutura verificada (${plan.mode}). Criados: ${result.createdFiles.join(', ') || 'nenhum'}.`);
+      });
+    }),
+    vscode.commands.registerCommand('storyDeck.checkNovelAssistant', async () => {
+      await guarded('não foi possível checar o Novel Assistant.', async () => {
+        const status = integration.detectNovelAssistant();
+        const storedMode = await integrationSettings.getIntegrationMode();
+        const mode = storedMode ?? integrationService.plan().mode;
+        const lines = [
+          `Instalado: ${status.installed ? 'sim' : 'não'}`,
+          `Versão: ${status.version ?? '—'}`,
+          `Comandos descobertos: ${status.commands.length}`,
+          `Custom editor: ${status.customEditors.join(', ') || '—'}`,
+          `API programática (exports): ${status.exportsApi ? 'sim' : 'não'}`,
+          `Diretórios presentes: ${status.workspaceDirs.join(', ') || 'nenhum'}`,
+          `Modo de integração: ${mode}`,
+        ];
+        logger.info(`Diagnóstico Novel Assistant: ${lines.join(' | ')}`);
+        void vscode.window.showInformationMessage(`Story Deck — Novel Assistant\n${lines.join('\n')}`);
+      });
+    }),
+    vscode.commands.registerCommand('storyDeck.openSceneInManuscript', async (sceneId?: string) => {
+      await guarded('não foi possível abrir a cena no Manuscript.', async () => {
+        const project = await storyService.getProject();
+        const scene = await pickScene(sceneId, project);
+        if (!scene) {
+          return;
+        }
+        const chapter = project.chapters.find((item) => item.id === scene.chapterId);
+        if (!chapter) {
+          void vscode.window.showWarningMessage('Story Deck: a cena não pertence a um capítulo existente.');
+          return;
+        }
+
+        const relative = scenePath(chapter.title, scene.title);
+        const result = await manuscriptStore.ensureSceneFile(relative, renderSceneManuscriptTemplate(scene));
+        const uri = vscode.Uri.file(result.absolutePath);
+        // Padrão seguro: sempre o editor de texto nativo.
+        await vscode.window.showTextDocument(uri);
+
+        const customEditor = integration.customEditorViewType();
+        if (customEditor) {
+          const choice = await vscode.window.showInformationMessage(
+            `Cena ${result.created ? 'criada' : 'aberta'} em ${result.relativePath}. Abrir também no editor WYSIWYG descoberto do Novel Assistant?`,
+            'Abrir no WYSIWYG',
+          );
+          if (choice) {
+            await vscode.commands.executeCommand('vscode.openWith', uri, customEditor);
+          }
+        } else if (result.created) {
+          void vscode.window.showInformationMessage(`Story Deck: cena criada em ${result.relativePath}.`);
+        }
+      });
+    }),
+    vscode.commands.registerCommand('storyDeck.showSceneBrief', async (sceneId?: string) => {
+      await guarded('não foi possível mostrar o Scene Brief.', async () => {
+        const project = await storyService.getProject();
+        const scene = await pickScene(sceneId, project);
+        if (!scene) {
+          return;
+        }
+        const data = await sceneBriefService.build(scene.id);
+        if (!data) {
+          return;
+        }
+        sceneBriefPanel.show(data);
+      });
     }),
   );
 

@@ -99,6 +99,23 @@
         "title": "Abrir tiragem",
         "category": "Story Deck",
         "icon": "$(layout)"
+      },
+      {
+        "command": "storyDeck.checkNovelAssistant",
+        "title": "Checar integração com Novel Assistant",
+        "category": "Story Deck"
+      },
+      {
+        "command": "storyDeck.openSceneInManuscript",
+        "title": "Abrir cena no Manuscript",
+        "category": "Story Deck",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "storyDeck.showSceneBrief",
+        "title": "Mostrar Scene Brief da cena",
+        "category": "Story Deck",
+        "icon": "$(book)"
       }
     ],
     "viewsContainers": {
@@ -159,6 +176,21 @@
         {
           "command": "storyDeck.openSpread",
           "when": "view == storyDeck.deckStudio",
+          "group": "navigation"
+        },
+        {
+          "command": "storyDeck.openSceneInManuscript",
+          "when": "view == storyDeck.storyBuilder",
+          "group": "navigation"
+        },
+        {
+          "command": "storyDeck.showSceneBrief",
+          "when": "view == storyDeck.storyBuilder",
+          "group": "navigation"
+        },
+        {
+          "command": "storyDeck.checkNovelAssistant",
+          "when": "view == storyDeck.dashboard",
           "group": "navigation"
         }
       ]

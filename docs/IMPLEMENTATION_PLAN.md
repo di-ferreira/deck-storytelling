@@ -1,7 +1,7 @@
 # IMPLEMENTATION_PLAN.md — Story Deck / Plano de Implementação Incremental
 
 > Fase 1 — Discovery e Arquitetura. Plano técnico para as Fases 2–8 do master prompt §20.
-> **Status atual: FASE 3 CONCLUÍDA (2026-11-16).** Fases 1 (documentação), 2 (fundação) e 3 (Deck Engine: núcleo + integração com Extension Host/Webview) entregues. Próxima: Fase 4 — Genre Builder.
+> **Status atual: FASE 6 CONCLUÍDA (2026-11-16).** Fases 1–6 entregues (Discovery, Fundação, Deck Engine, Genre Builder, Story Builder e Novel Assistant). Próxima: Fase 7 — IA opcional. O checklist manual V1/V2/V3/V5 do Novel Assistant segue pendente em `INTEGRATION.md` §6.4.
 
 ---
 
@@ -135,6 +135,40 @@ O teste de integração agora abre um workspace real e verifica ponta a ponta: a
 **Limitações:** sem teste automatizado de DOM do Story Builder; edição de vínculos de carta e a substituição `replaceCard` ainda sem botão; kanban de cenas fora do MVP; migração só é disparada na ativação (não em `load()` isolado).
 
 **Próximo passo:** Fase 6 — Novel Assistant (detecção, experimentos V1–V6, compatibilidade de diretórios e abertura de capítulos/cenas no editor de terceiros).
+
+---
+
+## 0.5 Resultado da Fase 6 — Novel Assistant (2026-11-16)
+
+**Status:** concluída (núcleo + UI + testes). Detalhes em `INTEGRATION.md` §6.
+
+**Entregas:**
+- **Detecção ampliada:** `NovelAssistantStatus` expõe `commands`, `customEditors`, `exportsApi` e `workspaceDirs`; `hasCommand(id)` é a única forma de executar um comando de terceiros. A lógica pura `parseNovelAssistantPackage` vive no domínio, sem `vscode`, e a descoberta de IDs vem exclusivamente de `contributes`.
+- **Fluxos A/B:** `IntegrationService` decide o modo. A (NA instalado) oferece `novel-assistant.newProject` somente se confirmado em runtime e cria apenas `.storydeck/` + `Story/`; B (standalone) acrescenta os 6 diretórios documentados se ausentes. `integrationMode` é gravado em `.storydeck/settings.json` preservando outras chaves — **o schema v2 do `project.json` não foi tocado**.
+- **Layout isolado:** `src/domain/integration/novel-path-layout.ts` (`sanitizeSegment`, `chapterDirectory`, `scenePath`) concentra o layout **inferido** `Manuscript/<Capítulo>/<Cena>.md`, com sanitização anti-travessia, fallback seguro, limite de tamanho e idempotência.
+- **Abertura de cena:** `storyDeck.openSceneInManuscript` calcula o caminho, cria o `.md` somente se ausente com template próprio (`writeFile` com flag `wx`) e abre com `showTextDocument`; oferece `vscode.openWith` apenas com um viewType descoberto.
+- **Scene Brief:** `storyDeck.showSceneBrief` abre um painel HTML estático (CSP `default-src 'none'`, sem scripts, todo valor escapado) com dados do `StoryService`, `SelectionService.links`, `GenreService` e avisos do `StoryContextBuilder`.
+- **Diagnóstico:** `storyDeck.checkNovelAssistant` mostra instalação, versão, nº de comandos, custom editor, `exportsApi`, diretórios presentes e modo de integração.
+- **Comandos:** 17 no total (14 anteriores + 3 novos), com entradas em `view/title` do Story Builder e Dashboard.
+
+**Decisões mantidas:** nenhum ID de terceiros é contrato; nada é sobrescrito; nada em `.novel-assistant/` é alterado; domínio sem `vscode`/`fs`; sem NA a extensão funciona 100%.
+
+**Verificações executadas:**
+
+| Comando | Resultado |
+|---|---|
+| `npm test` | ✅ 28 arquivos, **194 testes aprovados** (154 + 40 novos: T63–T69) |
+| `npx tsc -p tsconfig.json --noEmit` | ✅ sem erros |
+| `npx tsc -p tsconfig.webview.json` | ✅ sem erros |
+| `npm run compile` | ✅ host 394,7 kB + webview 358,03 kB |
+| `npm run test:integration` | ✅ exit 0 — 17 comandos, V6 no manifesto, `stats.json` intacto, cena criada/não sobrescrita, brief aberto |
+| `npm run package` | ✅ VSIX 238,39 kB |
+
+**O que foi automatizado dos experimentos:** V4 (leitura de `exports` coberta por teste unitário; a checagem runtime com o NA real permanece manual) e V6 (manifesto sem colisões + sentinel `.novel-assistant/stats.json` comparado byte a byte). V1, V2, V3 e V5 **não foram executados** — checklist em `INTEGRATION.md` §6.4.
+
+**Limitações:** layout ainda inferido (V2/V3); Fluxo A não executado de ponta a ponta com o NA instalado; Scene Brief sem persistência de painel; oferta WYSIWYG depende de interação.
+
+**Próximo passo:** Fase 7 — IA opcional (porta `AiProvider`, contexto seletivo, 3 alternativas, nada inserido automaticamente).
 
 ---
 
@@ -272,13 +306,13 @@ Fase 1 (atual) ──> Fase 2 ──> Fase 3 ──> Fase 4 ──> Fase 5 ─�
 5. Ajustar `pathLayout` com base nos resultados; implementar abertura de capítulo/cena e Scene Brief.
 6. Testes de coexistência com `@vscode/test-electron`.
 
-### 6.2 Critérios de conclusão
-- [ ] Nenhum ID de comando do NA hardcoded como contrato (descoberta em runtime).
-- [ ] Fluxo A preserva integralmente `Manuscript/`, `Characters/`, `.novel-assistant/`.
-- [ ] Fluxo B funciona sem a extensão instalada.
-- [ ] V1–V6 documentados com resultados reais.
-- [ ] Abrir cena funciona tanto por `showTextDocument` quanto (quando confirmado) pelo WYSIWYG.
-- [ ] Teste de coexistência verde.
+### 6.2 Critérios de conclusão (atualizado na Fase 6)
+- [x] Nenhum ID de comando do NA hardcoded como contrato (descoberta em runtime + `hasCommand`).
+- [x] Fluxo A preserva integralmente `Manuscript/`, `Characters/`, `.novel-assistant/` (código e decisão testados; execução real depende de V1).
+- [x] Fluxo B funciona sem a extensão instalada (integration test verde).
+- [ ] V1–V6 com resultados reais — V4 parcial e V6 automatizados; **V1/V2/V3/V5 pendentes de execução manual** (`INTEGRATION.md` §6.4).
+- [ ] Abrir cena por `showTextDocument` (✅) **e** WYSIWYG confirmado (depende de V5 — não executado).
+- [x] Teste de coexistência verde (manifesto sem colisões + sentinel `stats.json` intacto).
 
 ---
 
@@ -371,8 +405,6 @@ Uma fase só é encerrada quando:
 
 ## 12. Próximo passo
 
-Fases 1–3 concluídas. A próxima unidade é a **Fase 4 — Genre Builder**, começando pela `GenreSelectionPolicy` (1 dominante, 0–2 secundários, subgêneros por gênero) e pelo contrato de gênero em `Story/genre-contract.md`, consumindo a seleção persistida da Fase 3.
+Fases 1–6 concluídas. A próxima unidade é a **Fase 7 — Inteligência Artificial opcional**: porta `AiProvider` + provider OpenAI-compatible, segredos em `SecretStorage`, contexto seletivo (nunca 210 cartas nem manuscrito completo), `genre_adaptation` + `genre_relevant_axis`, 9 perfis de prompt como dados, 3 alternativas por padrão e nenhuma inserção automática.
 
-1. Reaproveitar `DeckSelection` (cartas de gênero) como entrada do Genre Builder — sem nova fonte de seleção.
-2. Implementar as regras de domínio com testes antes da UI (T26–T30 da matriz).
-3. Conectar `GenreProfile` ao `story-state.json` (`stepStates.genre`) preservando `spreads` e demais etapas.
+Em paralelo, executar o checklist manual V1/V2/V3/V5 em uma sessão com o Novel Assistant 0.1.0 instalado (`INTEGRATION.md` §6.4). O resultado de V2/V3 pode exigir ajuste **exclusivo** em `src/domain/integration/novel-path-layout.ts`; não há outro módulo que conheça o layout.

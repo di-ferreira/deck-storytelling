@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { StoryProjectConflictError } from '../../src/application/ports/project-repository';
@@ -55,6 +55,20 @@ describe('repositório de projeto (T15/T17)', () => {
     // Atualização com revisão desatualizada é recusada (T15: edição externa preservada).
     await expect(repo.save(project, project.revision)).rejects.toBeInstanceOf(StoryProjectConflictError);
     expect((await repo.load())?.revision).toBe(1);
+  });
+
+  it('T69 — cria diretórios de compatibilidade só no fluxo B e nunca sobrescreve', async () => {
+    const repo = new JsonProjectRepository(root, '4.0.0');
+    const flowA = await repo.ensureStructure();
+    expect(flowA.createdFiles.some((entry) => entry.startsWith('Manuscript/'))).toBe(false);
+
+    await mkdir(join(root, 'Manuscript'), { recursive: true });
+    await writeFile(join(root, 'Manuscript', 'cena.md'), '# Cena do autor\n', 'utf8');
+
+    const flowB = await repo.ensureStructure({ compatibilityDirs: true });
+    expect(flowB.createdFiles).toContain('Characters/');
+    expect(flowB.createdFiles).not.toContain('Manuscript/');
+    expect(await readFile(join(root, 'Manuscript', 'cena.md'), 'utf8')).toBe('# Cena do autor\n');
   });
 
   it('não exige workspace para operações de leitura', async () => {
