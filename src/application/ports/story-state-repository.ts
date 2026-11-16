@@ -27,4 +27,6 @@ export interface StoryStateRepository {
   loadGenreStep(): Promise<GenreProfile>;
   /** Grava somente se `expectedRevision` for igual à revisão atual do arquivo. */
   saveGenreStep(profile: GenreProfile, expectedRevision: number): Promise<GenreStepSaveResult>;
+  /** Remove `stepStates.genre` preservando spreads e demais etapas (usado pela migração v1→v2). */
+  clearGenreStep(expectedRevision: number): Promise<StoryStateSnapshot>;
 }

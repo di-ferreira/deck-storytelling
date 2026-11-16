@@ -2,6 +2,13 @@ import type { Deck } from '../../domain/deck/deck';
 import type { GenreCardJson } from '../../shared/schemas/deck';
 import type { GenreProfile } from '../../domain/genre/genre-profile';
 import { resolveSubGenres, type ResolvedSubGenre } from '../../domain/genre/sub-genre-resolver';
+import {
+  renderGeneratedBlock,
+  renderUserBlock,
+  type RenderedBlock,
+} from './document-blocks';
+
+export { generatedMarkers, renderGeneratedBlock, renderUserBlock, userBlockMarkers } from './document-blocks';
 
 /**
  * Renderização do contrato de gênero em Markdown.
@@ -33,10 +40,7 @@ export interface GenreContractSection {
   readonly value: string;
 }
 
-export interface RenderedGenreBlock {
-  readonly key: string;
-  readonly markdown: string;
-}
+export type RenderedGenreBlock = RenderedBlock;
 
 const FALLBACK_TITLES: Readonly<Record<GenreContractField, string>> = {
   promise: 'Promessa',
@@ -86,31 +90,6 @@ export function genreContractSections(profile: GenreProfile, deck: Deck): readon
       value: profile.contract[field],
     };
   });
-}
-
-function generatedMarkers(key: string): { start: string; end: string } {
-  return {
-    start: `<!-- story-deck:generated:start:${key} -->`,
-    end: `<!-- story-deck:generated:end:${key} -->`,
-  };
-}
-
-export function userBlockMarkers(key: string): { start: string; end: string } {
-  return {
-    start: `<!-- story-deck:user:start:${key} -->`,
-    end: `<!-- story-deck:user:end:${key} -->`,
-  };
-}
-
-export function renderGeneratedBlock(key: string, body: string): string {
-  const markers = generatedMarkers(key);
-  return `${markers.start}\n${body.trim()}\n${markers.end}`;
-}
-
-export function renderUserBlock(key: string, existingContent = ''): string {
-  const markers = userBlockMarkers(key);
-  const content = existingContent.trim();
-  return content ? `${markers.start}\n${content}\n${markers.end}` : `${markers.start}\n${markers.end}`;
 }
 
 function resolveGenreCard(deck: Deck, genreId: string): GenreCardJson | undefined {

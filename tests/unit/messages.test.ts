@@ -315,4 +315,53 @@ describe('T39 — protocolo da seleção e das tiragens', () => {
     };
     expect(hostToWebviewMessageSchema.safeParse(invalid).success).toBe(false);
   });
+
+  it('T60 — aceita as intenções do Story Builder e valida os payloads', () => {
+    const intents = [
+      { type: 'getStory' },
+      { type: 'storyAction', action: { action: 'updateIdentity', patch: { provisionalTitle: 'Obra' } } },
+      { type: 'storyAction', action: { action: 'setPremiseApproval', field: 'logline', approval: 'approved' } },
+      { type: 'storyAction', action: { action: 'addCharacter', entity: { id: 'pes-1', name: 'Ana' } } },
+      { type: 'storyAction', action: { action: 'addConflict', entity: { id: 'con-1', kind: 'main', linkedCharacterId: 'pes-1' } } },
+      { type: 'storyAction', action: { action: 'addScene', entity: { id: 'cen-1', chapterId: 'cap-1', sourceCardIds: ['ST-012'] } } },
+      { type: 'storyAction', action: { action: 'moveScene', id: 'cen-1', chapterId: 'cap-2' } },
+      { type: 'storyAction', action: { action: 'assignTechnique', cardId: 'ST-145', scope: { type: 'scene', sceneId: 'cen-1' }, intent: 'Preparar.' } },
+      { type: 'storyAction', action: { action: 'markBibleDirty', dirty: true } },
+      { type: 'regenerateStoryDocument', kind: 'story-bible' },
+    ];
+    for (const intent of intents) {
+      expect(webviewToHostMessageSchema.safeParse(intent).success, JSON.stringify(intent)).toBe(true);
+    }
+
+    expect(webviewToHostMessageSchema.safeParse({ type: 'storyAction' }).success).toBe(false);
+    expect(
+      webviewToHostMessageSchema.safeParse({
+        type: 'storyAction',
+        action: { action: 'setPremiseApproval', field: 'inexistente', approval: 'approved' },
+      }).success,
+    ).toBe(false);
+    expect(
+      webviewToHostMessageSchema.safeParse({ type: 'regenerateStoryDocument', kind: 'qualquer' }).success,
+    ).toBe(false);
+
+    const storyMessage = {
+      type: 'story',
+      payload: {
+        project: {
+          schemaVersion: 2,
+          deckVersion: '4.0.0',
+          revision: 3,
+          project: {
+            id: 'p',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            identity: { provisionalTitle: 'Obra', initialDescription: '', period: '' },
+          },
+        },
+        warnings: [{ code: 'UNKNOWN_CARD', message: 'Carta ausente.', cardId: 'ST-999' }],
+        revision: 3,
+      },
+    };
+    expect(hostToWebviewMessageSchema.safeParse(storyMessage).success).toBe(true);
+  });
 });

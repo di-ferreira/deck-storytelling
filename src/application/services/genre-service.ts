@@ -17,6 +17,7 @@ import {
 } from '../../domain/genre/genre-selection-policy';
 import type { DeckRepository } from '../ports/deck-repository';
 import type { GenreStepSaveResult, StoryStateRepository } from '../ports/story-state-repository';
+import type { StoryService } from './story-service';
 import {
   GenreContextBuilder,
   type GenreContext,
@@ -24,7 +25,10 @@ import {
 
 export interface GenreServiceDeps {
   readonly deck: DeckRepository;
+  /** Legado: usado quando não há StoryService injetado (T43). */
   readonly storyState: StoryStateRepository;
+  /** Quando presente, o perfil passa a viver no agregado `project.json` v2. */
+  readonly story?: StoryService;
   /** Reservado para carimbos futuros do serviço; a persistência usa o clock do repositório. */
   readonly clock?: () => string;
   /** Reservado para IDs futuros (ex.: versões do contrato). Nada é gerado hoje. */
@@ -42,14 +46,15 @@ export interface SubGenreUpdate {
 interface GenreSnapshot {
   readonly profile: GenreProfile;
   readonly revision: number;
+  readonly delegated: boolean;
 }
 
 /**
- * ÚNICO escritor do perfil de gênero.
+ * Fachada do perfil de gênero, preservando a API usada pelo painel.
  *
- * Valida contra o catálogo ativo (via política), persiste em `stepStates.genre` com a
- * revisão otimista do `story-state.json` e mantém um cache por instância. Conflito de
- * revisão limpa o cache e é relançado: o arquivo é a fonte da verdade.
+ * Com `story` injetado, delega a leitura/escrita ao `StoryService` (dono do `StoryProject`
+ * em `project.json` v2). Sem ele, mantém o comportamento da Fase 4 em `stepStates.genre`.
+ * Em ambos os casos há cache por instância e conflito de revisão limpa o cache.
  */
 export class GenreService {
   private cached: GenreSnapshot | undefined;
@@ -122,11 +127,16 @@ export class GenreService {
 
   private async getSnapshot(): Promise<GenreSnapshot> {
     if (!this.cached) {
+      if (this.deps.story) {
+        const project = await this.deps.story.getProject();
+        this.cached = { profile: project.genre, revision: project.revision, delegated: true };
+        return this.cached;
+      }
       // A revisão vem primeiro: se outro processo gravar no meio, o próximo save
       // falha com conflito (comportamento desejado), nunca grava por cima.
       const state = await this.deps.storyState.load();
       const profile = await this.deps.storyState.loadGenreStep();
-      this.cached = { profile, revision: state.revision };
+      this.cached = { profile, revision: state.revision, delegated: false };
     }
     return this.cached;
   }
@@ -143,6 +153,17 @@ export class GenreService {
       return snapshot.profile;
     }
 
+    if (snapshot.delegated && this.deps.story) {
+      try {
+        await this.deps.story.setGenre(next);
+      } catch (error) {
+        this.cached = undefined;
+        throw error;
+      }
+      this.cached = undefined;
+      return next;
+    }
+
     let saved: GenreStepSaveResult;
     try {
       saved = await this.deps.storyState.saveGenreStep(next, snapshot.revision);
@@ -152,7 +173,7 @@ export class GenreService {
       throw error;
     }
 
-    this.cached = saved;
+    this.cached = { profile: saved.profile, revision: saved.revision, delegated: false };
     return saved.profile;
   }
 }

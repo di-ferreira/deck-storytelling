@@ -8,6 +8,86 @@ import {
 } from './schemas/genre';
 import { cardLinkSchema, cardLinkTargetSchema, selectionVersionSchema } from './schemas/selection';
 import { spreadDefinitionSchema, spreadStateSchema } from './schemas/spread';
+import {
+  actSchema,
+  characterSchema,
+  chapterSchema,
+  conflictSchema,
+  decisionSchema,
+  locationSchema,
+  narratorSchema,
+  premiseApprovalSchema,
+  premiseFieldSchema,
+  premiseSchema,
+  relationshipSchema,
+  sceneSchema,
+  secretSchema,
+  storyProjectFileSchema,
+  storyWarningSchema,
+  structureChoiceSchema,
+  techniqueScopeSchema,
+  workIdentitySchema,
+  worldSchema,
+} from './schemas/story';
+
+function storyEntity<T extends z.ZodRawShape>(schema: z.ZodObject<T>) {
+  return schema.extend({ id: z.string().min(1) });
+}
+
+/** Intenções semânticas do Story Builder. Nenhum comando arbitrário atravessa a fronteira. */
+export const storyActionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('updateIdentity'), patch: workIdentitySchema.partial() }),
+  z.object({ action: z.literal('updatePremise'), patch: premiseSchema.partial() }),
+  z.object({ action: z.literal('setPremiseApproval'), field: premiseFieldSchema, approval: premiseApprovalSchema }),
+  z.object({ action: z.literal('addCharacter'), entity: storyEntity(characterSchema).partial().required({ id: true }) }),
+  z.object({ action: z.literal('updateCharacter'), id: z.string().min(1), patch: characterSchema.partial() }),
+  z.object({ action: z.literal('removeCharacter'), id: z.string().min(1) }),
+  z.object({ action: z.literal('addRelationship'), entity: storyEntity(relationshipSchema).partial().required({ id: true }) }),
+  z.object({ action: z.literal('updateRelationship'), id: z.string().min(1), patch: relationshipSchema.partial() }),
+  z.object({ action: z.literal('removeRelationship'), id: z.string().min(1) }),
+  z.object({ action: z.literal('addConflict'), entity: storyEntity(conflictSchema).partial().required({ id: true }) }),
+  z.object({ action: z.literal('updateConflict'), id: z.string().min(1), patch: conflictSchema.partial() }),
+  z.object({ action: z.literal('removeConflict'), id: z.string().min(1) }),
+  z.object({ action: z.literal('updateWorld'), patch: worldSchema.partial() }),
+  z.object({ action: z.literal('addLocation'), entity: storyEntity(locationSchema).partial().required({ id: true }) }),
+  z.object({ action: z.literal('updateLocation'), id: z.string().min(1), patch: locationSchema.partial() }),
+  z.object({ action: z.literal('removeLocation'), id: z.string().min(1) }),
+  z.object({ action: z.literal('addSecret'), entity: storyEntity(secretSchema).partial().required({ id: true }) }),
+  z.object({ action: z.literal('updateSecret'), id: z.string().min(1), patch: secretSchema.partial() }),
+  z.object({ action: z.literal('removeSecret'), id: z.string().min(1) }),
+  z.object({ action: z.literal('setNarrator'), profile: narratorSchema }),
+  z.object({ action: z.literal('addStructure'), choice: structureChoiceSchema }),
+  z.object({ action: z.literal('removeStructure'), cardId: z.string().min(1) }),
+  z.object({ action: z.literal('addAct'), entity: storyEntity(actSchema).partial().required({ id: true }) }),
+  z.object({ action: z.literal('updateAct'), id: z.string().min(1), patch: actSchema.partial() }),
+  z.object({ action: z.literal('removeAct'), id: z.string().min(1) }),
+  z.object({ action: z.literal('reorderActs'), orderedIds: z.array(z.string().min(1)) }),
+  z.object({ action: z.literal('addChapter'), entity: storyEntity(chapterSchema).partial().required({ id: true }) }),
+  z.object({ action: z.literal('updateChapter'), id: z.string().min(1), patch: chapterSchema.partial() }),
+  z.object({ action: z.literal('removeChapter'), id: z.string().min(1) }),
+  z.object({ action: z.literal('moveChapter'), id: z.string().min(1), actId: z.string().min(1), index: z.number().int().nonnegative().optional() }),
+  z.object({ action: z.literal('reorderChapters'), actId: z.string().min(1), orderedIds: z.array(z.string().min(1)) }),
+  z.object({ action: z.literal('addScene'), entity: storyEntity(sceneSchema).partial().required({ id: true }) }),
+  z.object({ action: z.literal('updateScene'), id: z.string().min(1), patch: sceneSchema.partial() }),
+  z.object({ action: z.literal('removeScene'), id: z.string().min(1) }),
+  z.object({ action: z.literal('moveScene'), id: z.string().min(1), chapterId: z.string().min(1), index: z.number().int().nonnegative().optional() }),
+  z.object({ action: z.literal('reorderScenes'), chapterId: z.string().min(1), orderedIds: z.array(z.string().min(1)) }),
+  z.object({ action: z.literal('assignTechnique'), cardId: z.string().min(1), scope: techniqueScopeSchema, intent: z.string() }),
+  z.object({ action: z.literal('updateTechnique'), cardId: z.string().min(1), scope: techniqueScopeSchema, patch: z.object({ intent: z.string() }) }),
+  z.object({ action: z.literal('removeTechnique'), cardId: z.string().min(1), scope: techniqueScopeSchema }),
+  z.object({ action: z.literal('addDecision'), entity: storyEntity(decisionSchema).partial().required({ id: true }) }),
+  z.object({ action: z.literal('updateDecision'), id: z.string().min(1), patch: decisionSchema.partial() }),
+  z.object({ action: z.literal('removeDecision'), id: z.string().min(1) }),
+  z.object({ action: z.literal('markBibleDirty'), dirty: z.boolean() }),
+]);
+
+export const storyDocumentKindSchema = z.enum(['premise', 'story-bible', 'outline', 'narrative-decisions']);
+
+export const storyPayloadSchema = z.object({
+  project: storyProjectFileSchema,
+  warnings: z.array(storyWarningSchema),
+  revision: z.number().int().nonnegative(),
+});
 
 /**
  * Protocolo Webview <-> Extension Host.
@@ -68,6 +148,10 @@ export const webviewToHostMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setDimensions'), dimensions: identityDimensionsSchema.partial() }),
   z.object({ type: z.literal('regenerateGenreContract') }),
   z.object({ type: z.literal('setMode'), mode: genreModeSchema }),
+  // Story Builder (Fase 5)
+  z.object({ type: z.literal('getStory') }),
+  z.object({ type: z.literal('storyAction'), action: storyActionSchema }),
+  z.object({ type: z.literal('regenerateStoryDocument'), kind: storyDocumentKindSchema }),
 ]);
 
 export const categorySummarySchema = z.object({
@@ -185,6 +269,7 @@ export const hostToWebviewMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('spreadState'), payload: spreadStatePayloadSchema }),
   z.object({ type: z.literal('genre'), payload: genrePayloadSchema }),
   z.object({ type: z.literal('mode'), mode: genreModeSchema }),
+  z.object({ type: z.literal('story'), payload: storyPayloadSchema }),
 ]);
 
 export type WebviewToHostMessage = z.infer<typeof webviewToHostMessageSchema>;
@@ -199,3 +284,6 @@ export type SpreadsPayload = z.infer<typeof spreadsPayloadSchema>;
 export type SpreadStatePayload = z.infer<typeof spreadStatePayloadSchema>;
 export type GenrePayload = z.infer<typeof genrePayloadSchema>;
 export type GenreMode = z.infer<typeof genreModeSchema>;
+export type StoryAction = z.infer<typeof storyActionSchema>;
+export type StoryDocumentKindMessage = z.infer<typeof storyDocumentKindSchema>;
+export type StoryPayload = z.infer<typeof storyPayloadSchema>;

@@ -7,6 +7,7 @@ import {
 import { LinkRegistry, linkTargetKey } from '../../domain/selection/link-registry';
 import type { DeckRepository } from '../ports/deck-repository';
 import type { OperationLog } from '../ports/operation-log';
+import type { StoryLinkLookup } from '../../domain/story/story-link-lookup';
 import type { RandomGenerator } from '../ports/random-generator';
 import type { SelectionRepository } from '../ports/selection-repository';
 
@@ -15,6 +16,8 @@ export interface SelectionServiceDeps {
   readonly repository: SelectionRepository;
   readonly log: OperationLog;
   readonly random: RandomGenerator;
+  /** Quando presente, recusa vínculos cujo alvo do Story Builder não existe. */
+  readonly storyLookup?: StoryLinkLookup;
   readonly clock?: () => string;
   /** Gerador de IDs de versão; recebe um prefixo estável. */
   readonly idFactory?: (prefix: string) => string;
@@ -133,7 +136,7 @@ export class SelectionService {
 
   async addLink(cardId: string, target: CardLinkTarget, note?: string): Promise<DeckSelection> {
     return this.apply('addLink', { cardId, target, note }, (selection, deck) => {
-      const registry = new LinkRegistry(selection.links, deck.index);
+      const registry = new LinkRegistry(selection.links, deck.index, this.deps.storyLookup);
       const next = registry.addLink(cardId, target, this.clock(), note);
       return selection.withLinks(next.toLinks(), this.clock());
     });
@@ -141,7 +144,7 @@ export class SelectionService {
 
   async removeLink(cardId: string, target: CardLinkTarget): Promise<DeckSelection> {
     return this.apply('removeLink', { cardId, target }, (selection, deck) => {
-      const registry = new LinkRegistry(selection.links, deck.index);
+      const registry = new LinkRegistry(selection.links, deck.index, this.deps.storyLookup);
       const next = registry.removeLink(cardId, target);
       if (next.links.length === selection.links.length) {
         return selection;
@@ -155,7 +158,7 @@ export class SelectionService {
       if (linkTargetKey(from) === linkTargetKey(to)) {
         return selection;
       }
-      const registry = new LinkRegistry(selection.links, deck.index);
+      const registry = new LinkRegistry(selection.links, deck.index, this.deps.storyLookup);
       const hasMatchingLink = registry.links.some(
         (link) => linkTargetKey(link.target) === linkTargetKey(from),
       );

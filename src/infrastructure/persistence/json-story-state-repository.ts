@@ -123,6 +123,27 @@ export class JsonStoryStateRepository implements StoryStateRepository {
     });
   }
 
+  /** Remove somente `stepStates.genre`; spreads e demais etapas são preservados. */
+  async clearGenreStep(expectedRevision: number): Promise<StoryStateSnapshot> {
+    return sharedWriteLock.run(this.filePath, async () => {
+      const raw = await this.readRaw();
+      const current = raw ? storyStateFileSchema.parse(raw) : { revision: 0, stepStates: {}, spreads: [] };
+      if (current.revision !== expectedRevision) {
+        throw new StoryStateConflictError(expectedRevision, current.revision);
+      }
+      const { genre: _genre, ...remaining } = current.stepStates;
+      const payload = {
+        schemaVersion: 1,
+        revision: current.revision + 1,
+        stepStates: remaining,
+        spreads: current.spreads,
+        updatedAt: this.clock(),
+      };
+      await atomicWriteJson(this.filePath, payload);
+      return { revision: payload.revision, stepStates: remaining, spreads: current.spreads };
+    });
+  }
+
   private async readRaw(): Promise<unknown | undefined> {
     if (!existsSync(this.filePath)) {
       return undefined;

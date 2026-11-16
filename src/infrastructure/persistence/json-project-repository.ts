@@ -2,8 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, watch } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { EnsureResult, ProjectRepository, StoredProject } from '../../application/ports/project-repository';
+import {
+  StoryProjectConflictError,
+  type EnsureResult,
+  type ProjectRepository,
+  type StoredProject,
+} from '../../application/ports/project-repository';
+import { createEmptyStoryProject, type StoryProjectFileJson } from '../../domain/story/story-project';
 import type { IDisposable } from '../../shared/types';
+import { storyProjectFileSchema } from '../../shared/schemas/story';
 import { atomicWriteJson, sharedWriteLock } from '../filesystem/atomic-writer';
 
 const STORYDECK_DIR = '.storydeck';
@@ -35,13 +42,18 @@ const EMPTY_MARKDOWN: Record<string, string> = {
   'narrative-decisions.md': '# Decisões Narrativas\n\n',
 };
 
+/** Implementação de `project.json` v2 com revisão otimista e leitura compatível com v1. */
 export class JsonProjectRepository implements ProjectRepository {
   private lastWrittenAt = 0;
+  private readonly clock: () => string;
 
   constructor(
     private readonly rootPath: string | undefined,
     private readonly deckVersion: string,
-  ) {}
+    clock?: () => string,
+  ) {
+    this.clock = clock ?? (() => new Date().toISOString());
+  }
 
   getWorkspaceRoot(): string | undefined {
     return this.rootPath;
@@ -62,17 +74,8 @@ export class JsonProjectRepository implements ProjectRepository {
     await mkdir(join(this.rootPath, STORY_DIR), { recursive: true });
 
     if (!existsSync(this.projectPath)) {
-      const now = new Date().toISOString();
-      const project: StoredProject = {
-        schemaVersion: 1,
-        deckVersion: this.deckVersion,
-        project: {
-          id: randomUUID(),
-          createdAt: now,
-          updatedAt: now,
-          identity: { title: '', description: '' },
-        },
-      };
+      const now = this.clock();
+      const project: StoredProject = createEmptyStoryProject(randomUUID(), this.deckVersion, now).toJSON();
       await sharedWriteLock.run(this.projectPath, () => atomicWriteJson(this.projectPath!, project));
       this.lastWrittenAt = Date.now();
       created.push(`.storydeck/project.json`);
@@ -106,23 +109,71 @@ export class JsonProjectRepository implements ProjectRepository {
       return undefined;
     }
     const raw = await readFile(this.projectPath, 'utf8');
-    const parsed = JSON.parse(raw) as StoredProject;
-    if (typeof parsed.schemaVersion !== 'number' || !parsed.project?.id) {
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      throw new Error('project.json não é um JSON válido.');
+    }
+    const inner = parsed.project as Record<string, unknown> | undefined;
+    if (typeof parsed.schemaVersion !== 'number' || !inner || typeof inner.id !== 'string' || !inner.id) {
       throw new Error('project.json é inválido ou usa um formato desconhecido.');
     }
-    return parsed;
+
+    if (parsed.schemaVersion === 2) {
+      return storyProjectFileSchema.parse(parsed) as StoryProjectFileJson;
+    }
+
+    // v1 (descritor mínimo): normalização em memória. A gravação da v2 é feita pela
+    // StoryMigration, que também importa o gênero de stepStates.genre.
+    const identity = (inner.identity ?? {}) as Record<string, unknown>;
+    const now = typeof inner.createdAt === 'string' ? inner.createdAt : '';
+    const empty = createEmptyStoryProject(inner.id, String(parsed.deckVersion ?? this.deckVersion), now).toJSON();
+    return {
+      ...empty,
+      deckVersion: typeof parsed.deckVersion === 'string' ? parsed.deckVersion : this.deckVersion,
+      project: {
+        ...empty.project,
+        id: inner.id,
+        createdAt: now,
+        updatedAt: typeof inner.updatedAt === 'string' ? inner.updatedAt : now,
+        identity: {
+          provisionalTitle: String(identity.provisionalTitle ?? identity.title ?? ''),
+          initialDescription: String(identity.initialDescription ?? identity.description ?? ''),
+          period: String(identity.period ?? ''),
+        },
+      },
+    };
   }
 
-  async save(project: StoredProject): Promise<void> {
+  async rawSchemaVersion(): Promise<number | undefined> {
+    if (!this.projectPath || !existsSync(this.projectPath)) {
+      return undefined;
+    }
+    const parsed = JSON.parse(await readFile(this.projectPath, 'utf8')) as { schemaVersion?: unknown };
+    return typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : undefined;
+  }
+
+  async save(project: StoredProject, expectedRevision: number): Promise<StoredProject> {
     if (!this.projectPath) {
       throw new Error('Nenhum workspace aberto.');
     }
-    await sharedWriteLock.run(this.projectPath, async () => {
-      await atomicWriteJson(this.projectPath!, {
+    return sharedWriteLock.run(this.projectPath, async () => {
+      const current = await this.load();
+      const actualRevision = current?.revision ?? 0;
+      if (actualRevision !== expectedRevision) {
+        throw new StoryProjectConflictError(expectedRevision, actualRevision);
+      }
+      const now = this.clock();
+      const saved: StoredProject = {
         ...project,
-        project: { ...project.project, updatedAt: new Date().toISOString() },
-      });
+        schemaVersion: 2,
+        revision: expectedRevision + 1,
+        project: { ...project.project, updatedAt: now },
+      };
+      await atomicWriteJson(this.projectPath!, saved);
       this.lastWrittenAt = Date.now();
+      return saved;
     });
   }
 
@@ -140,3 +191,5 @@ export class JsonProjectRepository implements ProjectRepository {
     return { dispose: () => watcher.close() };
   }
 }
+
+export { StoryProjectConflictError };

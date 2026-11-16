@@ -1,20 +1,9 @@
+import type { StoryProjectFileJson } from '../../domain/story/story-project';
 import type { IDisposable } from '../../shared/types';
+import { RevisionConflictError } from './selection-repository';
 
-export interface ProjectIdentity {
-  title: string;
-  description: string;
-}
-
-export interface StoredProject {
-  readonly schemaVersion: number;
-  readonly deckVersion: string;
-  readonly project: {
-    readonly id: string;
-    readonly createdAt: string;
-    readonly updatedAt: string;
-    readonly identity: ProjectIdentity;
-  };
-}
+/** Compatibilidade com o descritor mínimo da Fase 2. O tipo canônico é `StoryProjectFileJson`. */
+export type StoredProject = StoryProjectFileJson;
 
 export interface EnsureResult {
   readonly projectFile: string;
@@ -22,10 +11,26 @@ export interface EnsureResult {
   readonly created: boolean;
 }
 
+/** Conflito de revisão otimista do `project.json`. */
+export class StoryProjectConflictError extends RevisionConflictError {
+  constructor(expectedRevision: number, actualRevision: number) {
+    super(
+      expectedRevision,
+      actualRevision,
+      `O projeto foi alterado externamente (revisão esperada ${expectedRevision}, atual ${actualRevision}). Recarregue antes de salvar.`,
+    );
+    this.name = 'StoryProjectConflictError';
+  }
+}
+
 export interface ProjectRepository {
   getWorkspaceRoot(): string | undefined;
   ensureStructure(): Promise<EnsureResult>;
+  /** Compatível com v1: normaliza o descritor mínimo em memória para o formato v2. */
   load(): Promise<StoredProject | undefined>;
-  save(project: StoredProject): Promise<void>;
+  /** Versão BRUTA gravada em `project.json` (não normalizada), usada pela migração. */
+  rawSchemaVersion(): Promise<number | undefined>;
+  /** Grava somente se `expectedRevision` for igual à revisão do arquivo. */
+  save(project: StoredProject, expectedRevision: number): Promise<StoredProject>;
   watch(listener: () => void): IDisposable;
 }
