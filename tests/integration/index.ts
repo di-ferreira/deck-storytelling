@@ -36,6 +36,8 @@ export async function run(): Promise<void> {
     'storyDeck.openGenreBuilder',
     'storyDeck.setDominantGenre',
     'storyDeck.regenerateGenreContract',
+    'storyDeck.openStoryBuilder',
+    'storyDeck.regenerateStoryBible',
   ];
   for (const command of expected) {
     if (!commands.includes(command)) {
@@ -64,6 +66,15 @@ export async function run(): Promise<void> {
   if (!existsSync(contractFile)) {
     fail('Story/genre-contract.md não foi criado pelo comando storyDeck.newProject.');
   }
+  for (const doc of ['premise.md', 'story-bible.md', 'outline.md', 'narrative-decisions.md']) {
+    if (!existsSync(join(workspaceRoot, 'Story', doc))) {
+      fail(`Story/${doc} não foi criado pelo comando storyDeck.newProject.`);
+    }
+  }
+  const projectJson = readJson(projectFile) as { schemaVersion?: unknown };
+  if (projectJson.schemaVersion !== 2) {
+    fail(`project.json deveria estar no schema v2 após a migração; encontrado: ${String(projectJson.schemaVersion)}`);
+  }
 
   // Smoke test do painel: cria a webview e exercita ready/overview/cards/seleção/tiragens.
   await vscode.commands.executeCommand('storyDeck.openDeckStudio');
@@ -76,6 +87,14 @@ export async function run(): Promise<void> {
   await vscode.commands.executeCommand('storyDeck.regenerateGenreContract');
   if (!existsSync(contractFile)) {
     fail('O contrato de gênero desapareceu após a regeneração.');
+  }
+
+  await vscode.commands.executeCommand('storyDeck.openStoryBuilder');
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  await vscode.commands.executeCommand('storyDeck.regenerateStoryBible');
+  const bibleFile = join(workspaceRoot, 'Story', 'story-bible.md');
+  if (!existsSync(bibleFile)) {
+    fail('A Story Bible desapareceu após a regeneração.');
   }
 
   // Comando fino de sorteio: passa pelo painel, SelectionService e persistência real.

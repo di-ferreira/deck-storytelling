@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useDeckStudio, type TabId } from './hooks/use-deck-studio';
 import GenreBuilder from './components/GenreBuilder';
+import StoryBuilder from './components/StoryBuilder';
 import { CardFilters } from './components/CardFilters';
 import { CardGrid } from './components/CardGrid';
 import { CardDetail } from './components/CardDetail';
@@ -205,5 +206,7 @@ function DeckStudioApp() {
 /** O host marca o painel no <body>; o mesmo bundle atende Deck Studio e Genre Builder. */
 export default function App() {
   const panel = document.body.dataset.storydeckPanel;
-  return panel === 'genre' ? <GenreBuilder /> : <DeckStudioApp />;
+  if (panel === 'genre') return <GenreBuilder />;
+  if (panel === 'story') return <StoryBuilder />;
+  return <DeckStudioApp />;
 }

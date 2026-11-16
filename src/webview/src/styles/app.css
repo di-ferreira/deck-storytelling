@@ -301,3 +301,23 @@ select {
 }
 .warnings { margin: 12px 0; padding: 8px 12px; border: 1px solid #d7ba7d; border-radius: 4px; }
 .warnings p { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 12px; }
+
+/* Story Builder (Fase 5) */
+.story-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
+.story-field { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; font-size: 12px; }
+.story-field input, .story-field textarea, .story-field select {
+  background: var(--sd-input-bg); color: var(--sd-input-fg);
+  border: 1px solid var(--sd-border); border-radius: 4px; padding: 7px 9px;
+  font-family: inherit; font-size: 12px;
+}
+.story-card {
+  margin: 14px 0; padding: 12px; border: 1px solid var(--sd-border);
+  border-radius: 6px; background: var(--sd-bg);
+}
+.story-card > strong { display: block; margin-bottom: 6px; }
+.story-card small { color: var(--sd-muted); font-weight: normal; }
+.story-nested {
+  margin: 10px 0 10px 14px; padding: 10px; border-left: 3px solid var(--sd-accent);
+  background: var(--sd-surface); border-radius: 0 4px 4px 0;
+}
+.story-nested > strong { display: flex; align-items: center; gap: 5px; }

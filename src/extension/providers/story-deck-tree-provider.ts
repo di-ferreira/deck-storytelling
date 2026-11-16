@@ -32,6 +32,17 @@ export interface GenreStatusReader {
   }>;
 }
 
+/** Leitura mínima do StoryProject necessária para a view lateral. */
+export interface StoryStatusReader {
+  getProject(): Promise<{
+    readonly acts: readonly { readonly id: string; readonly title: string }[];
+    readonly chapters: readonly { readonly id: string; readonly title: string }[];
+    readonly scenes: readonly { readonly id: string; readonly title: string }[];
+    readonly characters: readonly { readonly id: string; readonly name: string }[];
+    readonly bible: { readonly dirty: boolean };
+  }>;
+}
+
 export class TreeEntry extends vscode.TreeItem {
   constructor(
     label: string,
@@ -68,6 +79,7 @@ export class StoryDeckTreeProvider implements vscode.TreeDataProvider<TreeEntry>
     private readonly selection?: SelectionCountsReader,
     private readonly spreads?: SpreadCountsReader,
     private readonly genres?: GenreStatusReader,
+    private readonly story?: StoryStatusReader,
   ) {}
 
   refresh(): void {
@@ -99,16 +111,7 @@ export class StoryDeckTreeProvider implements vscode.TreeDataProvider<TreeEntry>
         return this.genreBuilderChildren();
 
       case 'storyDeck.storyBuilder':
-        return [
-          new TreeEntry('Premissa', [], { icon: 'lightbulb' }),
-          new TreeEntry('Story Bible', [], { icon: 'book' }),
-          new TreeEntry('Personagens', [], { icon: 'person' }),
-          new TreeEntry('Conflitos', [], { icon: 'swords' }),
-          new TreeEntry('World Building', [], { icon: 'globe' }),
-          new TreeEntry('Estrutura', [], { icon: 'outline' }),
-          new TreeEntry('Capítulos', [], { icon: 'list-ordered' }),
-          new TreeEntry('Cenas', [], { icon: 'film' }),
-        ];
+        return this.storyBuilderChildren();
 
       case 'storyDeck.aiAssistant':
         return [
@@ -120,6 +123,47 @@ export class StoryDeckTreeProvider implements vscode.TreeDataProvider<TreeEntry>
 
       default:
         return [];
+    }
+  }
+
+  /** Hierarquia real do Story Builder; falha de leitura nunca derruba a view. */
+  private async storyBuilderChildren(): Promise<TreeEntry[]> {
+    const OPEN_STORY = 'storyDeck.openStoryBuilder';
+    try {
+      const project = await this.story?.getProject();
+      const bibleLabel = 'Story Bible';
+      return [
+        new TreeEntry('Premissa', [], { icon: 'lightbulb', commandId: OPEN_STORY }),
+        new TreeEntry(bibleLabel, [], {
+          icon: 'book',
+          description: project?.bible.dirty ? 'desatualizada' : 'atualizada',
+          commandId: OPEN_STORY,
+        }),
+        new TreeEntry('Personagens', [], {
+          icon: 'person',
+          description: String(project?.characters.length ?? 0),
+          commandId: OPEN_STORY,
+        }),
+        new TreeEntry('Conflitos', [], { icon: 'swords', commandId: OPEN_STORY }),
+        new TreeEntry('World Building', [], { icon: 'globe', commandId: OPEN_STORY }),
+        new TreeEntry('Estrutura', [], {
+          icon: 'outline',
+          description: String(project?.acts.length ?? 0),
+          commandId: OPEN_STORY,
+        }),
+        new TreeEntry('Capítulos', [], {
+          icon: 'list-ordered',
+          description: String(project?.chapters.length ?? 0),
+          commandId: OPEN_STORY,
+        }),
+        new TreeEntry('Cenas', [], {
+          icon: 'film',
+          description: String(project?.scenes.length ?? 0),
+          commandId: OPEN_STORY,
+        }),
+      ];
+    } catch {
+      return [new TreeEntry('Premissa', [], { icon: 'lightbulb', commandId: OPEN_STORY })];
     }
   }
 

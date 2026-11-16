@@ -109,6 +109,35 @@ O teste de integração agora abre um workspace real e verifica ponta a ponta: a
 
 ---
 
+## 0.4 Resultado da Fase 5 — Story Builder (2026-11-16)
+
+**Status:** concluída. Planejamento pelo `story-deck-planner` (`longcat-2.5-free`); núcleo pelo `story-deck-developer` (`hy4-flash-free#high`); integração host/webview na continuação da sessão.
+
+**Entregas principais:**
+- **Domínio puro** `src/domain/story/` com `StoryProject` imutável, 9 etapas, hierarquia ato→capítulo→cena (só `Chapter.actId`/`Scene.chapterId` persistidos), segredos com verdade factual separada, técnicas com escopo workaround, decisões criativas e `AuditState` reservado.
+- **Persistência:** `project.json` v2 com `revision` otimista e `StoryProjectConflictError`; migração lazy/idempotente v1→v2 que importa `stepStates.genre`, preserva tiragens e registra no journal; `WorkIdentity` sem duplicar as dimensões da Fase 4.
+- **Serviços:** `StoryService` (único escritor do agregado, journal, exclusão protegida via `StoryLinkQuery`), `StoryContextBuilder` (hierarquia derivada + avisos), `StoryBibleAssembler` (17 seções), `SelectionLinkQuery`. `GenreService` passa a delegar ao `StoryService` quando injetado.
+- **Markdown:** `document-blocks.ts` generalizado; `premise.md`, `story-bible.md`, `outline.md` e `narrative-decisions.md` create-if-absent com regeneração explícita preservando blocos `story-deck:user`.
+- **UI:** painel `storyDeck.storyBuilder` no mesmo bundle React (modo `story` pelo atributo no `<body>`), abas para as 9 etapas + hierarquia + Bíblia, TreeView dinâmica e comandos `storyDeck.openStoryBuilder` / `storyDeck.regenerateStoryBible`.
+
+**Decisões:** IA e auditoria ficam para a Fase 7; integração Novel Assistant para a Fase 6; nenhuma substituição de carta foi exposta na UI; regeneração Markdown nunca é automática; `sourceCardIds` inválidos são erro, referências textuais inválidas são aviso.
+
+**Verificações executadas:**
+| Comando | Resultado |
+|---|---|
+| `npm test` | ✅ 22 arquivos, **154 testes aprovados** (118 + 36 novos) |
+| `npx tsc -p tsconfig.json --noEmit` | ✅ sem erros |
+| `npx tsc -p tsconfig.webview.json` | ✅ sem erros |
+| `npm run compile` | ✅ host 375,7 kB + webview 358 kB |
+| `npm run test:integration` | ✅ exit 0 — 14 comandos, `project.json` v2, 4 Markdown e Bíblia regenerada |
+| `npm run package` | ✅ VSIX 233,3 kB |
+
+**Limitações:** sem teste automatizado de DOM do Story Builder; edição de vínculos de carta e a substituição `replaceCard` ainda sem botão; kanban de cenas fora do MVP; migração só é disparada na ativação (não em `load()` isolado).
+
+**Próximo passo:** Fase 6 — Novel Assistant (detecção, experimentos V1–V6, compatibilidade de diretórios e abertura de capítulos/cenas no editor de terceiros).
+
+---
+
 ## 0. Como usar este plano
 
 O master prompt §22 exige: não implementar tudo de uma vez; trabalhar por fases; antes de cada fase ler a documentação existente, verificar o implementado, identificar dependências e definir critérios de conclusão; durante cada fase implementar, testar, corrigir, atualizar docs e manter build; ao final apresentar concluído, arquivos, testes, limitações e atualizar o plano.

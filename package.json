@@ -45,6 +45,16 @@
         "category": "Story Deck"
       },
       {
+        "command": "storyDeck.openStoryBuilder",
+        "title": "Abrir Story Builder",
+        "category": "Story Deck"
+      },
+      {
+        "command": "storyDeck.regenerateStoryBible",
+        "title": "Atualizar Story Bible",
+        "category": "Story Deck"
+      },
+      {
         "command": "storyDeck.refresh",
         "title": "Atualizar",
         "category": "Story Deck",
@@ -128,12 +138,17 @@
       "view/title": [
         {
           "command": "storyDeck.refresh",
-          "when": "view == storyDeck.deckStudio || view == storyDeck.dashboard || view == storyDeck.genreBuilder",
+          "when": "view == storyDeck.deckStudio || view == storyDeck.dashboard || view == storyDeck.genreBuilder || view == storyDeck.storyBuilder",
           "group": "navigation"
         },
         {
           "command": "storyDeck.setDominantGenre",
           "when": "view == storyDeck.genreBuilder",
+          "group": "navigation"
+        },
+        {
+          "command": "storyDeck.regenerateStoryBible",
+          "when": "view == storyDeck.storyBuilder",
           "group": "navigation"
         },
         {

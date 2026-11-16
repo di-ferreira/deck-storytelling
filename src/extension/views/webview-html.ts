@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 export function getWebviewHtml(
   webview: vscode.Webview,
   extensionPath: string,
-  panel: 'deck' | 'genre' = 'deck',
+  panel: 'deck' | 'genre' | 'story' = 'deck',
 ): string {
   const webviewRoot = join(extensionPath, 'dist', 'webview');
   let scriptUri: vscode.Uri;
@@ -39,7 +39,7 @@ export function getWebviewHtml(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="${csp}">
-  <title>Story Deck — ${panel === 'genre' ? 'Genre Builder' : 'Deck Studio'}</title>
+  <title>Story Deck — ${panel === 'genre' ? 'Genre Builder' : panel === 'story' ? 'Story Builder' : 'Deck Studio'}</title>
   <link rel="stylesheet" href="${styleUri}">
 </head>
 <body data-storydeck-panel="${panel}">

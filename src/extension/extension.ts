@@ -6,6 +6,9 @@ import { DeckService } from '../application/services/deck-service';
 import { SelectionService } from '../application/services/selection-service';
 import { SpreadEngine } from '../application/services/spread-engine';
 import { GenreService } from '../application/services/genre-service';
+import { StoryService } from '../application/services/story-service';
+import { StoryMigration } from '../application/services/story-migration';
+import { SelectionLinkQuery } from '../application/services/selection-link-query';
 import { JsonDeckLoader } from '../infrastructure/deck/json-deck-loader';
 import { VsCodeOutputLogger } from '../infrastructure/logging/vscode-logger';
 import { VsCodeNovelAssistantAdapter } from '../infrastructure/integrations/vscode-novel-assistant-adapter';
@@ -16,9 +19,11 @@ import { JsonStoryStateRepository } from '../infrastructure/persistence/json-sto
 import { MathRandomGenerator } from '../infrastructure/random/math-random-generator';
 import { JsonSpreadCatalog } from '../infrastructure/spread/json-spread-catalog';
 import { GenreContractDocumentStore } from '../infrastructure/markdown/genre-contract-document-store';
+import { FsStoryDocumentStore } from '../infrastructure/markdown/fs-story-document-store';
 import { StoryDeckTreeProvider } from './providers/story-deck-tree-provider';
 import { DeckStudioPanel } from './views/deck-studio-panel';
 import { GenreBuilderPanel } from './views/genre-builder-panel';
+import { StoryBuilderPanel } from './views/story-builder-panel';
 
 const VIEW_IDS = [
   'storyDeck.dashboard',
@@ -142,13 +147,49 @@ async function bootstrap(context: vscode.ExtensionContext): Promise<void> {
     storyState: storyStateRepository,
     random,
   });
-  const genreService = new GenreService({ deck: loader, storyState: storyStateRepository });
+  const storyService = new StoryService({
+    repository: projectRepository,
+    log: operationLog,
+    links: new SelectionLinkQuery(selectionRepository),
+    deck: loader,
+    projectId,
+  });
+
+  // Migração lazy v1 → v2: importa o gênero da Fase 4 e preserva tiragens/outras etapas.
+  const migration = new StoryMigration({
+    projectRepository,
+    storyState: storyStateRepository,
+    log: operationLog,
+  });
+  try {
+    const result = await migration.migrate();
+    if (result.changed) {
+      logger.info(`Projeto migrado para schema v2 (revisão ${result.revision}).`);
+    }
+  } catch (error) {
+    logger.warn(`A migração v1→v2 não foi concluída: ${errorText(error)}`);
+  }
+
+  const genreService = new GenreService({ deck: loader, storyState: storyStateRepository, story: storyService });
   const genreDocuments = new GenreContractDocumentStore(
     workspaceRoot
       ? { projectRoot: workspaceRoot, deck: loader }
       : { filePath: join(tmpdir(), TEMP_PROJECT_DIR, projectId, 'Story', 'genre-contract.md'), deck: loader },
   );
   const genrePanel = new GenreBuilderPanel(context, deckService, genreService, genreDocuments, logger);
+  const storyDocuments = new FsStoryDocumentStore(
+    workspaceRoot
+      ? { projectRoot: workspaceRoot }
+      : { directory: join(tmpdir(), TEMP_PROJECT_DIR, projectId, 'Story') },
+  );
+  const storyPanel = new StoryBuilderPanel(
+    context,
+    deckService,
+    selectionService,
+    storyService,
+    storyDocuments,
+    logger,
+  );
 
   const panel = new DeckStudioPanel(
     context,
@@ -161,7 +202,7 @@ async function bootstrap(context: vscode.ExtensionContext): Promise<void> {
 
   const treeProviders: StoryDeckTreeProvider[] = [];
   for (const viewId of VIEW_IDS) {
-    const provider = new StoryDeckTreeProvider(viewId, deckService, selectionService, spreadEngine, genreService);
+    const provider = new StoryDeckTreeProvider(viewId, deckService, selectionService, spreadEngine, genreService, storyService);
     treeProviders.push(provider);
     context.subscriptions.push(vscode.window.registerTreeDataProvider(viewId, provider));
     context.subscriptions.push(provider);
@@ -182,6 +223,17 @@ async function bootstrap(context: vscode.ExtensionContext): Promise<void> {
       genrePanel.show();
       refreshViews();
       await genrePanel.refresh();
+    }),
+    vscode.commands.registerCommand('storyDeck.openStoryBuilder', async () => {
+      storyPanel.show();
+      refreshViews();
+      await storyPanel.refresh();
+    }),
+    vscode.commands.registerCommand('storyDeck.regenerateStoryBible', async () => {
+      await guarded('não foi possível atualizar a Story Bible.', async () => {
+        await storyPanel.regenerate('story-bible');
+        refreshViews();
+      });
     }),
     vscode.commands.registerCommand('storyDeck.setDominantGenre', async () => {
       await guarded('não foi possível definir o gênero dominante.', async () => {
@@ -290,6 +342,7 @@ async function bootstrap(context: vscode.ExtensionContext): Promise<void> {
       refreshViews();
       await panel.refresh();
       await genrePanel.refresh();
+      await storyPanel.refresh();
     }),
     vscode.commands.registerCommand('storyDeck.newProject', async () => {
       try {
