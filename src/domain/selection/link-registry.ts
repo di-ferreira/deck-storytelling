@@ -1,5 +1,7 @@
 import { SelectionError } from './selection-error';
 import type { CardLink, CardLinkTarget, CardLinkTargetType } from './deck-selection';
+import { StoryError } from '../story/story-error';
+import { hasTarget, type StoryLinkLookup } from '../story/story-link-lookup';
 
 /** Consulta mínima para validar alvos de gênero. `DeckIndex` satisfaz estruturalmente. */
 export interface GenreLookup {
@@ -56,6 +58,7 @@ export class LinkRegistry {
   constructor(
     links: readonly CardLink[],
     private readonly genres?: GenreLookup,
+    private readonly stories?: StoryLinkLookup,
   ) {
     const seen = new Set<string>();
     const entries: CardLink[] = [];
@@ -95,14 +98,14 @@ export class LinkRegistry {
     const link: CardLink = note === undefined
       ? { cardId, target, createdAt }
       : { cardId, target, createdAt, note };
-    return new LinkRegistry([...this.entries, link], this.genres);
+    return new LinkRegistry([...this.entries, link], this.genres, this.stories);
   }
 
   removeLink(cardId: string, target: CardLinkTarget): LinkRegistry {
     const filtered = this.entries.filter(
       (link) => !(link.cardId === cardId && sameLinkTarget(link.target, target)),
     );
-    return new LinkRegistry(filtered, this.genres);
+    return new LinkRegistry(filtered, this.genres, this.stories);
   }
 
   /**
@@ -117,7 +120,7 @@ export class LinkRegistry {
     const mapped = this.entries.map((link) =>
       sameLinkTarget(link.target, from) ? { ...link, target: to } : link,
     );
-    return new LinkRegistry(mapped, this.genres);
+    return new LinkRegistry(mapped, this.genres, this.stories);
   }
 
   toLinks(): readonly CardLink[] {
@@ -125,11 +128,11 @@ export class LinkRegistry {
   }
 
   private assertTarget(target: CardLinkTarget): void {
-    if (target.type !== 'genre' || !this.genres) {
-      return;
-    }
-    if (!this.genres.isGenre(target.genreId)) {
+    if (target.type === 'genre' && this.genres && !this.genres.isGenre(target.genreId)) {
       throw new SelectionError('UNKNOWN_CARD', `O gênero ${target.genreId} não existe no catálogo ativo.`);
+    }
+    if (this.stories && !hasTarget(this.stories, target)) {
+      throw new StoryError('UNKNOWN_TARGET', `O alvo do vínculo não existe neste projeto (${target.type}).`);
     }
   }
 }
