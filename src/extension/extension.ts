@@ -121,11 +121,17 @@ async function bootstrap(context: vscode.ExtensionContext): Promise<void> {
   }
 
   const integration = new VsCodeNovelAssistantAdapter(workspaceRoot);
-  const assistant = integration.detectNovelAssistant();
+  // Detecção de terceiros NUNCA pode impedir o registro dos comandos do Story Deck.
+  let assistant: ReturnType<VsCodeNovelAssistantAdapter['detectNovelAssistant']> | undefined;
+  try {
+    assistant = integration.detectNovelAssistant();
+  } catch (error) {
+    logger.warn(`Não foi possível inspecionar o Novel Assistant: ${errorText(error)}`);
+  }
   logger.info(
-    assistant.installed
+    assistant?.installed
       ? `Novel Assistant detectado: v${assistant.version ?? 'desconhecida'}, ${assistant.commands.length} comandos públicos.`
-      : 'Novel Assistant não detectado — modo independente.',
+      : 'Novel Assistant não detectado (ou não inspecionável) — modo independente.',
   );
 
   const deckService = new DeckService(loader, integration);

@@ -6,6 +6,7 @@ import {
   parseNovelAssistantPackage,
   presentNovelAssistantDirs,
 } from '../../domain/integration/novel-assistant-package';
+import { safeExtensionExports } from '../../domain/integration/extension-exports';
 
 const EXTENSION_ID = 'baryo-dev.novel-assistant';
 
@@ -31,7 +32,7 @@ export class VsCodeNovelAssistantAdapter implements IntegrationGateway {
       return ABSENT;
     }
 
-    const info = parseNovelAssistantPackage(extension.packageJSON, extension.exports);
+    const info = parseNovelAssistantPackage(extension.packageJSON, safeExtensionExports(extension));
     const workspaceDirs = workspaceRoot
       ? presentNovelAssistantDirs((directory) => existsSync(join(workspaceRoot, directory)))
       : [];
